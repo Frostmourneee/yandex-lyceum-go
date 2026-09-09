@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	// "fmt"
+	"fmt"
 	"sync"
 )
 
@@ -12,14 +12,14 @@ func main() {
 		return i * 2
 	}
 	workers := 5
-	results, err := ParallelMapCtx(context.Background(), inputs, fn, workers)
-	if err != nil {
-		// log.Fatalf("ParallelMapCtx: %v", err)
-	}
-	// fmt.Println(results)
+	results, _ := ParallelMapCtx(context.Background(), inputs, fn, workers)
+	// if err != nil {
+	// log.Fatalf("ParallelMapCtx: %v", err)
+	// }
+	fmt.Println(results)
 }
 
-func ParallelMapCtx(ctx context.Context, inputs []int, fn func(int) int, workers int) ([]int, error) {
+func ParallelMapCtx1(ctx context.Context, inputs []int, fn func(int) int, workers int) ([]int, error) {
 	n := len(inputs)
 	wg := &sync.WaitGroup{}
 	wg.Add(2 * n)
@@ -53,7 +53,7 @@ func ParallelMapCtx(ctx context.Context, inputs []int, fn func(int) int, workers
 
 		go func(i int) {
 			defer wg.Done()
-			
+
 			jobResult <- struct {
 				index int
 				num   int
@@ -79,6 +79,38 @@ func ParallelMapCtx(ctx context.Context, inputs []int, fn func(int) int, workers
 		}
 	}
 
+	wg.Wait()
+
+	return results, nil
+}
+
+func ParallelMapCtx(ctx context.Context, inputs []int, fn func(int) int, workers int) ([]int, error) {
+	n := len(inputs)
+	results := make([]int, n)
+	ch := make(chan int)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(workers)
+
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			for idx := range ch {
+				results[idx] = fn(inputs[idx])
+			}
+		}()
+	}
+
+	for i := 0; i < n; i++ {
+		select {
+		case <-ctx.Done():
+			close(ch)
+			wg.Wait()
+			return nil, ctx.Err()
+		case ch <- i:
+		}
+	}
+	close(ch)
 	wg.Wait()
 
 	return results, nil
