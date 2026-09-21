@@ -92,3 +92,17 @@ func counter() func() int {
 		return c
 	}
 }
+
+func ex4() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/echo", func(w http.ResponseWriter, req *http.Request) {
+		msg := req.URL.Query().Get("msg")
+		if msg == "" {
+			fmt.Fprint(w, "empty")
+		} else {
+			fmt.Fprint(w, msg)
+		}
+	})
+
+	http.ListenAndServe(":8080", mux)
+}
